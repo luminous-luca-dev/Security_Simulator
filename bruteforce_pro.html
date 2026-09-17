@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>総合セキュリティ・シミュレーター (ブルートフォース特化版)</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; height: 100vh; overflow: hidden; background: #1a1a1a; }
+  h2 { margin-top: 0; font-size: 1.2rem; border-bottom: 1px solid currentColor; padding-bottom: 5px; }
+  h3 { font-size: 1rem; margin-bottom: 10px; }
+  
+  /* 左側：攻撃者（ハッカー風） */
+  #attacker { width: 45%; background: #0d0d0d; color: #00ff00; padding: 20px; display: flex; flex-direction: column; border-right: 3px solid #444; }
+  .control-panel { background: #1a1a1a; padding: 15px; border: 1px solid #00ff00; border-radius: 5px; margin-bottom: 15px; }
+  select, button, input { background: #222; color: #00ff00; border: 1px solid #00ff00; padding: 8px 12px; margin: 5px 0; font-family: monospace; }
+  button { cursor: pointer; width: 100%; font-weight: bold; }
+  button:hover:not(:disabled) { background: #00ff00; color: #000; }
+  button:disabled { border-color: #555; color: #555; cursor: not-allowed; }
+  #attacker-log { flex: 1; background: #000; padding: 10px; overflow-y: auto; font-family: monospace; font-size: 0.9rem; border: 1px solid #333; }
+  
+  /* 右側：被害者（一般Webサイト風） */
+  #victim { width: 55%; background: #f4f6f9; color: #333; padding: 20px; display: flex; flex-direction: column; }
+  .victim-header { background: #0056b3; color: #fff; padding: 15px; text-align: center; font-weight: bold; border-radius: 5px 5px 0 0; }
+  .system-content { background: #fff; padding: 20px; border: 1px solid #ddd; flex: 1; overflow-y: auto; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+  
+  /* 被害者側UIパーツ */
+  .login-form { border: 1px solid #ccc; padding: 20px; border-radius: 5px; background: #fdfdfd; max-width: 400px; margin: 0 auto; }
+  .login-form label { display: block; margin-bottom: 5px; font-size: 0.9rem; }
+  .login-form input { width: 100%; padding: 8px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 3px; font-family: monospace; font-size: 1.1rem; }
+  .status-box { margin-top: 15px; padding: 10px; border-radius: 3px; background: #eee; text-align: center; font-weight: bold; }
+  .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+  .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+  .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+</style>
+</head>
+<body>
+
+<!-- ================= 左ペイン：攻撃者 ================= -->
+<div id="attacker">
+  <h2>💻 攻撃者ターミナル (Brute-Force Suite)</h2>
+  
+  <div class="control-panel">
+    <h3>認証突破ツール</h3>
+    
+    <label style="font-size: 0.8rem;">攻撃手法の選択:</label>
+    <select id="auth-method">
+      <option value="bf-4digit">1. 数字4桁ブルートフォース (対象: taro)</option>
+      <option value="bf-6digit">2. 数字6桁ブルートフォース (対象: ken)</option>
+      <option value="bf-alpha">3. 英小文字(最大3桁)ブルートフォース (対象: yumi)</option>
+      <option value="mask">4. マスク攻撃 [Admin+数字4桁] (対象: admin)</option>
+      <option value="spray">5. パスワードスプレー [固定パスワード攻撃] (対象: ceo)</option>
+      <option value="bf-alnum9">6. 1〜9桁 英数字大文字小文字 (対象: boss)</option>
+    </select>
+
+    <label style="font-size: 0.8rem;">標的ID (スプレー攻撃時は無視されます):</label>
+    <input type="text" id="target-id" value="taro">
+    
+    <button id="btn-auth-attack">▶ 攻撃開始</button>
+  </div>
+
+  <h3>ターミナルログ</h3>
+  <div id="attacker-log"></div>
+</div>
+
+<!-- ================= 右ペイン：被害者 ================= -->
+<div id="victim">
+  <h2>🛡️ 被害者システム (Victim)</h2>
+  <div class="victim-header">社内ポータルシステム</div>
+  
+  <div class="system-content">
+    <div class="login-form">
+      <label>ユーザーID</label>
+      <input type="text" id="login-id" readonly>
+      <label>パスワード</label>
+      <input type="text" id="login-pass" readonly>
+      <div id="login-status" class="status-box">待機中</div>
+    </div>
+
+    <div style="margin-top: 30px; font-size: 0.85rem; color: #666; border-top: 1px solid #ddd; padding-top: 10px;">
+      <strong>【学習用DBモック】</strong><br>
+      taro : 8739 (4桁)<br>
+      ken : 492018 (6桁)<br>
+      yumi : cat (英3文字)<br>
+      admin : Admin2024 (マスク攻撃ターゲット)<br>
+      ceo : Spring2024 (スプレーターゲット)<br>
+      boss : k3F (英数字3桁) ※4桁以上はリアルに時間がかかりすぎるためデモ用
+    </div>
+  </div>
+</div>
+
+<script>
+  const sleep = ms => new Promise(res => setTimeout(res, ms));
+  const logAttack = msg => {
+    const logArea = document.getElementById('attacker-log');
+    logArea.innerHTML += `<div>> ${msg}</div>`;
+    logArea.scrollTop = logArea.scrollHeight;
+  };
+  const clearLog = () => document.getElementById('attacker-log').innerHTML = '';
+
+  /* 被害者側データベース（モック） */
+  const mockDB = {
+    'taro': '8739',         // 4桁用
+    'ken': '492018',        // 6桁用
+    'yumi': 'cat',          // 英小文字3文字用
+    'admin': 'Admin2024',   // マスク攻撃用
+    'ceo': 'Spring2024',     // スプレー攻撃用（よく使われる季節＋年のパスワード）
+    'boss': 'admin'
+  };
+
+  // メソッド変更時にターゲットIDを自動切り替え
+  document.getElementById('auth-method').addEventListener('change', (e) => {
+    const targetInput = document.getElementById('target-id');
+    const method = e.target.value;
+    if(method === 'bf-4digit') targetInput.value = 'taro';
+    if(method === 'bf-6digit') targetInput.value = 'ken';
+    if(method === 'bf-alpha') targetInput.value = 'yumi';
+    if(method === 'mask') targetInput.value = 'admin';
+    if(method === 'spray') targetInput.value = '--- (自動切替) ---';
+    if(method === 'bf-alnum9') targetInput.value = 'boss';
+  });
+
+  let isAttacking = false;
+
+  document.getElementById('btn-auth-attack').addEventListener('click', async () => {
+    if (isAttacking) return;
+    isAttacking = true;
+    const btn = document.getElementById('btn-auth-attack');
+    btn.disabled = true;
+    clearLog();
+    
+    const method = document.getElementById('auth-method').value;
+    const targetId = document.getElementById('target-id').value;
+    const statusBox = document.getElementById('login-status');
+    const idField = document.getElementById('login-id');
+    const passField = document.getElementById('login-pass');
+    
+    statusBox.className = "status-box";
+    let found = false;
+    let startTime = performance.now();
+
+    // ==========================================
+    // 1. 数字4桁 (0000 - 9999)
+    // ==========================================
+    if (method === 'bf-4digit') {
+      logAttack(`[高速ブルートフォース] ID:${targetId} に数字4桁を総当たり...`);
+      idField.value = targetId;
+      
+      for (let i = 0; i <= 9999; i++) {
+        const pass = String(i).padStart(4, '0');
+        if (i % 25 === 0) { // UI更新間引き
+          passField.value = pass;
+          statusBox.innerText = `解析中...`;
+          await sleep(1); 
+        }
+        if (mockDB[targetId] === pass) {
+          showSuccess(pass, startTime);
+          found = true; break;
+        }
+      }
+    } 
+    
+    // ==========================================
+    // 2. 数字6桁 (000000 - 999999)
+    // ==========================================
+    else if (method === 'bf-6digit') {
+      logAttack(`[超高速ブルートフォース] ID:${targetId} に数字6桁(100万通り)を総当たり...`);
+      idField.value = targetId;
+      
+      for (let i = 0; i <= 999999; i++) {
+        const pass = String(i).padStart(6, '0');
+        if (i % 800 === 0) { // 100万通りなので描画を大幅に間引く
+          passField.value = pass;
+          statusBox.innerText = `解析中...`;
+          await sleep(1); 
+        }
+        if (mockDB[targetId] === pass) {
+          showSuccess(pass, startTime);
+          found = true; break;
+        }
+      }
+    }
+
+    // ==========================================
+    // 3. 英小文字 (1〜3桁)
+    // ==========================================
+    else if (method === 'bf-alpha') {
+      logAttack(`[英字ブルートフォース] ID:${targetId} に英小文字(a〜zzz)を総当たり...`);
+      idField.value = targetId;
+      const chars = "abcdefghijklmnopqrstuvwxyz";
+      
+      let attempts = 0;
+      // 1桁〜3桁の生成ループ
+      for (let length = 1; length <= 3; length++) {
+        const totalPermutations = Math.pow(chars.length, length);
+        for (let i = 0; i < totalPermutations; i++) {
+          let pass = "";
+          let temp = i;
+          for (let j = 0; j < length; j++) {
+            pass = chars[temp % chars.length] + pass;
+            temp = Math.floor(temp / chars.length);
+          }
+          
+          attempts++;
+          if (attempts % 50 === 0) {
+            passField.value = pass;
+            statusBox.innerText = `解析中...`;
+            await sleep(1); 
+          }
+          
+          if (mockDB[targetId] === pass) {
+            showSuccess(pass, startTime);
+            found = true; break;
+          }
+        }
+        if(found) break;
+      }
+    }
+
+    // ==========================================
+    // 4. マスク攻撃 (Admin + 4桁)
+    // ==========================================
+    else if (method === 'mask') {
+      logAttack(`[マスク攻撃] ID:${targetId} にポリシー推測攻撃を開始...`);
+      logAttack(`推測パターン: "Admin" + [数字4桁]`);
+      idField.value = targetId;
+      
+      for (let i = 0; i <= 9999; i++) {
+        const pass = "Admin" + String(i).padStart(4, '0');
+        if (i % 15 === 0) {
+          passField.value = pass;
+          statusBox.innerText = `解析中...`;
+          await sleep(1); 
+        }
+        if (mockDB[targetId] === pass) {
+          showSuccess(pass, startTime);
+          logAttack("<span style='color:orange;'>💡 ルールに基づいたパスワードは非常に推測されやすいです。</span>");
+          found = true; break;
+        }
+      }
+    }
+
+    // ==========================================
+    // 5. パスワードスプレー攻撃
+    // ==========================================
+    else if (method === 'spray') {
+      const sprayPass = "Spring2024"; // 季節+年 は超頻出
+      logAttack(`[スプレー攻撃] 多数のIDに対して一律で "${sprayPass}" を試行します...`);
+      logAttack(`<span style='color:#888;'>※同一IDに連続アクセスしないため、アカウントロックをすり抜けます</span>`);
+      
+      // 適当なIDリスト（数百件を想定）
+      const userList = ['info', 'test', 'admin', 'sales', 'taro', 'hanako', 'president', 'manager', 'ceo', 'support'];
+      
+      passField.value = sprayPass;
+      
+      for (let i = 0; i < userList.length; i++) {
+        const uid = userList[i];
+        idField.value = uid;
+        statusBox.innerText = `[${uid}] を検証中...`;
+        
+        await sleep(300); // ネットワーク越しの攻撃を演出
+        
+        if (mockDB[uid] === sprayPass) {
+          const timeTaken = ((performance.now() - startTime) / 1000).toFixed(2);
+          logAttack(`<span style='color:yellow;'>[CRACKED] 脆弱なパスワードを持つIDを発見: ${uid}</span>`);
+          statusBox.innerHTML = `ログイン成功 (ID: ${uid})<br><small>突破時間: ${timeTaken}秒</small>`;
+          statusBox.className = "status-box success";
+          found = true; break;
+        } else {
+          logAttack(`失敗: ID=${uid}`);
+        }
+      }
+    }
+    // ==========================================
+    // 6. 1〜9桁 英数字大文字小文字 (最大 約1京3500兆通り)
+    // ==========================================
+    else if (method === 'bf-alnum9') {
+      logAttack(`[最強ブルートフォース] ID:${targetId} に1〜9桁(英数大文字小文字)を総当たり...`);
+      logAttack(`<span style='color:#aaa;'>※文字種: 62種類。9桁の最大組み合わせ数は約1京3500兆通りです。</span>`);
+      idField.value = targetId;
+      
+      const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+      const charsLen = chars.length;
+      let attempts = 0;
+
+      // 1桁から9桁まで順番に桁数を増やして探索
+      for (let length = 1; length <= 9; length++) {
+        const maxPerm = Math.pow(charsLen, length);
+        logAttack(`[探索レイヤー移行] ${length}桁の解析を開始... (最大 ${maxPerm.toLocaleString()} 通り)`);
+        
+        // n桁のインデックス配列（例: 3桁なら [0, 0, 0] からスタート）
+        let indices = new Array(length).fill(0);
+        let done = false;
+
+        while (!done) {
+          attempts++;
+          
+          // 現在のインデックス配列から文字列を生成
+          let currentPass = "";
+          for (let k = 0; k < length; k++) currentPass += chars[indices[k]];
+
+          // UIのフリーズを防ぐため、1万回に1回だけ画面を描画して1ミリ秒待機
+          // ※この数字を小さくすると描画は綺麗になりますが、処理は遅くなります
+          if (attempts % 10000 === 0) {
+            passField.value = currentPass;
+            statusBox.innerText = `解析中... [ ${length}桁 ]`;
+            await sleep(1); 
+          }
+          
+          if (mockDB[targetId] === currentPass) {
+            showSuccess(currentPass, startTime);
+            found = true; 
+            break;
+          }
+
+          // 桁上がりの計算ロジック（車のオドメーターのように右端から繰り上げる）
+          let pos = length - 1;
+          while (pos >= 0) {
+            indices[pos]++;
+            if (indices[pos] === charsLen) {
+              indices[pos] = 0;
+              pos--;
+            } else {
+              break;
+            }
+          }
+          if (pos < 0) done = true; // その桁数の全パターンが終了したら次へ
+        }
+        if (found) break;
+      }
+    }
+
+    // 失敗時の共通処理
+    if (!found) {
+      logAttack("[FAILED] パスワードを特定できませんでした。");
+      statusBox.innerText = "突破失敗";
+      statusBox.className = "status-box error";
+    }
+    
+    isAttacking = false;
+    btn.disabled = false;
+    
+    // 成功時のUI更新関数
+    function showSuccess(pass, start) {
+      const timeTaken = ((performance.now() - start) / 1000).toFixed(2);
+      passField.value = pass;
+      logAttack(`<span style='color:yellow;'>[CRACKED] パスワード特定: ${pass} (所要時間: ${timeTaken}秒)</span>`);
+      statusBox.innerHTML = `ログイン成功<br><small>突破時間: ${timeTaken}秒</small>`;
+      statusBox.className = "status-box success";
+    }
+  });
+</script>
+</body>
+</html>
