@@ -1,141 +1,111 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>総合セキュリティ・シミュレーター</title>
-<style>
-  * { box-sizing: border-box; }
-  body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; height: 100vh; overflow: hidden; background: #1a1a1a; }
-  h2 { margin-top: 0; font-size: 1.2rem; border-bottom: 1px solid currentColor; padding-bottom: 5px; }
-  h3 { font-size: 1rem; margin-bottom: 10px; }
-  
-  /* 左側：攻撃者（ハッカー風） */
-  #attacker { width: 45%; background: #0d0d0d; color: #00ff00; padding: 20px; display: flex; flex-direction: column; border-right: 3px solid #444; }
-  .control-panel { background: #1a1a1a; padding: 15px; border: 1px solid #00ff00; border-radius: 5px; margin-bottom: 15px; }
-  select, button, input { background: #222; color: #00ff00; border: 1px solid #00ff00; padding: 8px 12px; margin: 5px 0; font-family: monospace; }
-  button { cursor: pointer; width: 100%; font-weight: bold; }
-  button:hover:not(:disabled) { background: #00ff00; color: #000; }
-  button:disabled { border-color: #555; color: #555; cursor: not-allowed; }
-  #attacker-log { flex: 1; background: #000; padding: 10px; overflow-y: auto; font-family: monospace; font-size: 0.9rem; border: 1px solid #333; }
-  .scenario-selector { margin-bottom: 20px; }
-  
-  /* 右側：被害者（一般Webサイト風） */
-  #victim { width: 55%; background: #f4f6f9; color: #333; padding: 20px; display: flex; flex-direction: column; }
-  .victim-header { background: #0056b3; color: #fff; padding: 15px; text-align: center; font-weight: bold; border-radius: 5px 5px 0 0; }
-  .system-content { background: #fff; padding: 20px; border: 1px solid #ddd; flex: 1; overflow-y: auto; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-  
-  /* 被害者側UIパーツ */
-  .login-form { border: 1px solid #ccc; padding: 20px; border-radius: 5px; background: #fdfdfd; max-width: 400px; margin: 0 auto; }
-  .login-form label { display: block; margin-bottom: 5px; font-size: 0.9rem; }
-  .login-form input { width: 100%; padding: 8px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 3px; }
-  .status-box { margin-top: 15px; padding: 10px; border-radius: 3px; background: #eee; text-align: center; font-weight: bold; }
-  .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-  .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-  
-  /* SQLi視覚化パーツ */
-  .sql-query { background: #272822; color: #f8f8f2; padding: 10px; font-family: monospace; border-radius: 3px; margin-top: 15px; word-break: break-all; }
-  .sql-keyword { color: #f92672; }
-  .sql-string { color: #e6db74; }
-  
-  /* パネル切り替え用 */
-  .scenario-panel { display: none; }
-  .scenario-panel.active { display: block; }
-  .vuln-badge { background: #dc3545; color: white; padding: 2px 6px; border-radius: 3px; font-size: 0.75rem; vertical-align: middle; margin-left: 10px; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>セキュリティシミュレーター｜画面選択</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            padding: 48px 20px;
+            background: #f1f5f9;
+            color: #1e293b;
+            font-family: "Segoe UI", "Noto Sans JP", sans-serif;
+        }
+
+        main {
+            width: 100%;
+            max-width: 960px;
+            margin: 0 auto;
+        }
+
+        .page-heading {
+            margin-bottom: 32px;
+            text-align: center;
+        }
+
+        .page-heading h1 {
+            margin: 0 0 10px;
+            font-size: clamp(1.6rem, 4vw, 2.2rem);
+        }
+
+        .page-heading p {
+            margin: 0;
+            color: #64748b;
+        }
+
+        .page-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+            gap: 18px;
+        }
+
+        .page-card {
+            display: block;
+            padding: 24px;
+            border: 1px solid #cbd5e1;
+            border-radius: 12px;
+            background: #fff;
+            color: inherit;
+            text-decoration: none;
+            transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+        }
+
+        .page-card:hover,
+        .page-card:focus-visible {
+            border-color: #2563eb;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .page-card:focus-visible {
+            outline: 3px solid #93c5fd;
+            outline-offset: 3px;
+        }
+
+        .page-card h2 {
+            margin: 0 0 8px;
+            color: #1d4ed8;
+            font-size: 1.15rem;
+        }
+
+        .page-card p {
+            margin: 0;
+            color: #64748b;
+            line-height: 1.7;
+        }
+    </style>
 </head>
 <body>
+    <main>
+        <header class="page-heading">
+            <h1>セキュリティシミュレーター</h1>
+            <p>表示する画面を選択してください。</p>
+        </header>
 
-<!-- ================= 左ペイン：攻撃者 ================= -->
-<div id="attacker">
-  <h2>攻撃者ターミナル (Attacker)</h2>
-  
-  <div class="scenario-selector">
-    <label>攻撃シナリオを選択:</label>
-    <select id="scenario-select" style="width:100%;">
-      <option value="auth-attacks">1. パスワードクラック (ブルートフォース/リスト攻撃)</option>
-      <option value="sqli-attack">2. SQLインジェクション (認証回避)</option>
-      <option value="xss-attack">3. クロスサイトスクリプティング (XSS)</option>
-    </select>
-  </div>
-
-  <!-- シナリオ1: パスワードクラック -->
-  <div id="panel-auth-attacks" class="scenario-panel active control-panel">
-    <h3>認証突破ツール</h3>
-    <select id="auth-method">
-      <option value="bruteforce">ブルートフォース攻撃 (0000〜9999)</option>
-      <option value="dictionary">辞書攻撃 (よくあるパスワード)</option>
-      <option value="accountlist">アカウントリスト攻撃 (他サイトからの流出リスト)</option>
-    </select>
-    <input type="text" id="target-id" value="taro" placeholder="標的ID">
-    <button id="btn-auth-attack">▶ 攻撃開始</button>
-  </div>
-
-  <!-- シナリオ2: SQLインジェクション -->
-  <div id="panel-sqli-attack" class="scenario-panel control-panel">
-    <h3>SQLインジェクション (SQLi)</h3>
-    <p style="font-size: 0.8rem; color:#aaa;">ログインフォームの入力欄に不正な文字列を入れ、DBのクエリを改ざんします。</p>
-    <select id="sqli-payload">
-      <option value="admin' -- ">管理者権限奪取 (コメントアウト手法)</option>
-      <option value="a' OR '1'='1">全レコード合致 (OR 1=1 手法)</option>
-    </select>
-    <button id="btn-sqli-attack">▶ SQLiペイロード送信</button>
-  </div>
-
-  <!-- シナリオ3: XSS -->
-  <div id="panel-xss-attack" class="scenario-panel control-panel">
-    <h3>クロスサイトスクリプティング (XSS)</h3>
-    <p style="font-size: 0.8rem; color:#aaa;">入力値のサニタイズ（無害化）が甘い掲示板を狙います。</p>
-    <select id="xss-payload">
-      <option value="<script>alert('セッションIDを窃取: ' + document.cookie);</script>">Cookie窃取 (Scriptタグ)</option>
-      <option value="<img src='x' onerror='document.body.innerHTML=`<h1>ハッキング完了</h1>`;'>">サイト改ざん (img onerror)</option>
-    </select>
-    <button id="btn-xss-attack">▶ スクリプトを投稿</button>
-  </div>
-
-  <h3>ターミナルログ</h3>
-  <div id="attacker-log"></div>
-</div>
-
-
-<!-- ================= 右ペイン：被害者 ================= -->
-<div id="victim">
-  <h2>被害者システム (Victim)</h2>
-  <div class="victim-header" id="victim-title">ついっったー</div>
-  
-  <div class="system-content">
-    
-    <!-- パスワードクラック ＆ SQLi 用のログイン画面 -->
-    <div id="victim-login" class="scenario-panel active">
-      <h3>システムログイン <span class="vuln-badge" id="vuln-label">アカウントロック未実装</span></h3>
-      <div class="login-form">
-        <label>ユーザーID</label>
-        <input type="text" id="login-id" readonly>
-        <label>パスワード</label>
-        <input type="text" id="login-pass" readonly>
-        <div id="login-status" class="status-box">待機中</div>
-      </div>
-
-      <!-- SQLi時のみ表示されるDB裏側の視覚化 -->
-      <div id="db-visualizer" style="display:none; margin-top: 30px;">
-        <h3>【裏側の処理】データベース発行クエリ</h3>
-        <div id="sql-preview" class="sql-query">
-          <span class="sql-keyword">SELECT</span> * <span class="sql-keyword">FROM</span> users <span class="sql-keyword">WHERE</span> id = '<span class="sql-string" id="sql-id-val"></span>' <span class="sql-keyword">AND</span> pass = '<span class="sql-string" id="sql-pass-val"></span>'
-        </div>
-      </div>
-    </div>
-
-    <!-- XSS 用の掲示板画面 -->
-    <div id="victim-bbs" class="scenario-panel">
-      <h3>社内連絡掲示板 <span class="vuln-badge">エスケープ処理漏れ</span></h3>
-      <div id="bbs-area">
-        <div style="border-bottom: 1px dashed #ccc; padding: 10px 0;"><strong>システム管理者:</strong> 今週の予定です。</div>
-      </div>
-    </div>
-
-  </div>
-</div>
-
-<script src="script.js"></script>
+        <nav class="page-list" aria-label="シミュレーター画面一覧">
+            <a class="page-card" href="simulator.html">
+                <h2>総合セキュリティ・シミュレーター</h2>
+                <p>ブルートフォース、SQLインジェクション、XSSのシナリオを体験できます。</p>
+            </a>
+            <a class="page-card" href="pro.html">
+                <h2>ブルートフォース特化版</h2>
+                <p>複数のパスワード攻撃手法をシミュレーションできます。</p>
+            </a>
+            <a class="page-card" href="ginkou.html">
+                <h2>銀行の残高照会画面</h2>
+                <p>銀行アプリ風の残高・入出金明細画面です。</p>
+            </a>
+            <a class="page-card" href="Univercity-result.html">
+                <h2>大学の合否照会画面</h2>
+                <p>入学試験の合否発表を表示する画面です。</p>
+            </a>
+        </nav>
+    </main>
 </body>
 </html>
