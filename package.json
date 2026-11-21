@@ -1,0 +1,25 @@
+{
+  "name": "security_simulator",
+  "version": "1.0.0",
+  "description": "",
+  "main": "script.js",
+  "scripts": {
+    "build:css": "tailwindcss -i ./tailwind.css -o ./assets/tailwind.css --minify",
+    "test": "npm run build:css"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/luminous-luca-dev/Security_Simulator.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/luminous-luca-dev/Security_Simulator/issues"
+  },
+  "homepage": "https://github.com/luminous-luca-dev/Security_Simulator#readme",
+  "devDependencies": {
+    "tailwindcss": "^3.4.17"
+  }
+}
